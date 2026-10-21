@@ -14,5 +14,6 @@ and inquiry, not individual assets, lifecycle state, or chronology.
 
 ## Repository scenarios
 
-- None yet. Let the first distinct recurring working situation earn the first
-  repository-specific scenario.
+- **Build or preview the native animation:** use for macOS toolchain selection,
+  actual OpenGL execution, and deterministic captures. Read
+  [`scenarios/build-and-preview/GUIDE.md`](scenarios/build-and-preview/GUIDE.md).
