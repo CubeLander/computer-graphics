@@ -20,3 +20,14 @@ not validate a rendered frame: inspect a captured PNG and check process status.
 
 Windows is not locally validated. Keep that boundary explicit until a Windows
 build and graphics runtime have actually been exercised.
+
+For assignment-two previews, `--assignment 2 --days 48 --view 2` shows the
+terminator and land texture; `--assignment 1` is the same geometry without
+lighting. Texture JPEGs are embedded by CMake, not found via the working
+directory. Validate the unpacked release from a different directory.
+
+Observed on the same macOS driver during this upgrade: binding texture 0 for
+the unlit branch of the shared shader produced an “unloadable” sampler warning
+even though that branch did not sample it. Keep a complete texture bound for
+all draws. The lunar plane must be composited before opaque bodies; drawing
+it last gave Earth's surface an artificial blue band and obscured lighting QA.

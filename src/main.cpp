@@ -17,7 +17,7 @@ struct App {
     double days = 48, speed = 5;
     float yaw = 0.65f, elevation = 0.65f, distance = 29;
     bool paused = false, planes = true, dragging = false;
-    bool capture = false;
+    bool capture = false, textured = true;
     double lastX = 0, lastY = 0;
     int view = 1;
 };
@@ -34,6 +34,7 @@ void key(GLFWwindow* w, int key, int, int action, int) {
     switch (key) {
     case GLFW_KEY_ESCAPE: glfwSetWindowShouldClose(w, GLFW_TRUE); break;
     case GLFW_KEY_SPACE: a.paused = !a.paused; break;
+    case GLFW_KEY_T: a.textured = !a.textured; break;
     case GLFW_KEY_P: a.planes = !a.planes; break;
     case GLFW_KEY_R: a.days = 48; a.speed = 5; preset(a,1); break;
     case GLFW_KEY_EQUAL: case GLFW_KEY_KP_ADD: a.speed = std::min(80.0, a.speed*2); break;
@@ -45,7 +46,7 @@ void key(GLFWwindow* w, int key, int, int action, int) {
     }
 }
 struct Options {
-    int frames = 0, view = 1;
+    int frames = 0, view = 1, assignment = 2;
     double days = 48;
     bool fixed = false;
     std::string screenshot;
@@ -57,9 +58,10 @@ Options options(int argc, char** argv) {
         if (arg == "--help") {
             std::cout << "Sun Earth Moon - OpenGL 3.3 core\n"
                 "Options: --days NUMBER (fixed simulation time), --view 1|2|3,\n"
+                "         --assignment 1|2 (default 2),\n"
                 "         --frames POSITIVE_INTEGER (exit after N frames), --screenshot FILE.png\n"
                 "Controls: drag to orbit; wheel to zoom; Space pause; +/- speed;\n"
-                "          1 overview; 2 follow Earth; 3 top; P orbital plane; R reset; F12 capture; Esc quit.\n";
+                "          1 overview; 2 follow Earth; 3 top; T assignment 1/2; P orbital plane; R reset; F12 capture; Esc quit.\n";
             std::exit(0);
         }
         if (i+1 >= argc) throw std::runtime_error("Missing value for " + arg);
@@ -71,6 +73,9 @@ Options options(int argc, char** argv) {
         } else if (arg == "--view") {
             o.view = std::stoi(value,&consumed);
             if (o.view < 1 || o.view > 3) throw std::runtime_error("View must be 1, 2 or 3");
+        } else if (arg == "--assignment") {
+            o.assignment = std::stoi(value,&consumed);
+            if (o.assignment < 1 || o.assignment > 2) throw std::runtime_error("Assignment must be 1 or 2");
         } else if (arg == "--frames") {
             o.frames = std::stoi(value,&consumed);
             if (o.frames <= 0) throw std::runtime_error("Frame count must be positive");
@@ -89,7 +94,7 @@ void label(Renderer& r, const glm::mat4& vp, glm::vec3 pos, const std::string& t
     r.text((ndc.x*0.5f+0.5f)*w+12, (0.5f-ndc.y*0.5f)*h-12, 1.4f, text, color, w,h);
 }
 void run(GLFWwindow* window, const Options& o) {
-    App a; a.days = o.days; a.paused = o.fixed; preset(a,o.view);
+    App a; a.days = o.days; a.paused = o.fixed; preset(a,o.view); a.textured = o.assignment == 2;
     glfwSetWindowUserPointer(window,&a);
     glfwSetKeyCallback(window,key);
     glfwSetMouseButtonCallback(window,[](GLFWwindow* w,int button,int action,int) {
@@ -125,23 +130,27 @@ void run(GLFWwindow* window, const Options& o) {
             std::sin(a.elevation), std::cos(a.elevation)*std::cos(a.yaw));
         auto vp = glm::perspective(glm::radians(45.0f),float(fw)/fh,0.1f,180.0f) *
                   glm::lookAt(eye,target,glm::vec3(0,1,0));
-        renderer.scene(a.days,vp,a.planes);
+        renderer.scene(a.days,vp,eye,a.planes,a.textured);
         label(renderer,vp,{0,orbit::sunRadius+0.2f,0},"SUN",{1,0.75f,0.35f,1},w,h);
         label(renderer,vp,orbit::earth(a.days)+glm::vec3(0,0.85f,0),"EARTH",{0.4f,0.8f,1,1},w,h);
         label(renderer,vp,orbit::moon(a.days)+glm::vec3(0,0.35f,0),"MOON",{0.83f,0.89f,0.95f,1},w,h);
         renderer.panel(20,20,435,145,{0.025f,0.045f,0.08f,0.94f},w,h);
         renderer.panel(20,20,3,145,{0.3f,0.8f,0.88f,1},w,h);
         renderer.text(38,36,2.5f,"SUN / EARTH / MOON",{0.9f,0.95f,1,1},w,h);
-        renderer.text(38,67,1.4f,"01  /  ORBITAL MOTION",{0.35f,0.8f,0.88f,1},w,h);
+        renderer.text(38,67,1.4f,a.textured ? "02  /  TEXTURES + LIGHTING" : "01  /  ORBITAL MOTION",{0.35f,0.8f,0.88f,1},w,h);
         std::ostringstream status;
         status << std::fixed << std::setprecision(2) << "DAY " << a.days << "   |   "
                << (a.paused ? "PAUSED" : "RUNNING") << "   |   " << a.speed << " d/s";
         renderer.text(38,92,1.25f,status.str(),{0.8f,0.85f,0.9f,1},w,h);
         renderer.text(38,116,1.2f,"YEAR 365.256 d   /   LUNAR ORBIT 27.322 d",{0.6f,0.7f,0.8f,1},w,h);
         renderer.text(38,138,1.2f,"LUNAR PLANE +5.145 deg   /   SIZES NOT TO SCALE",{0.6f,0.7f,0.8f,1},w,h);
-        renderer.panel(20,float(h)-70,float(w)-40,50,{0.025f,0.045f,0.08f,0.94f},w,h);
-        renderer.text(36,float(h)-57,1.25f,"DRAG orbit   SCROLL zoom   SPACE pause   +/- speed   1/2/3 views",{0.75f,0.84f,0.92f,1},w,h);
-        renderer.text(36,float(h)-36,1.1f,"P lunar plane   R reset   F12 screenshot   ESC quit   |   OpenGL 3.3 Core",{0.45f,0.6f,0.72f,1},w,h);
+        renderer.panel(20,float(h)-90,float(w)-40,70,{0.025f,0.045f,0.08f,0.94f},w,h);
+        renderer.text(36,float(h)-77,1.25f,"DRAG orbit   SCROLL zoom   SPACE pause   +/- speed   1/2/3 views",{0.75f,0.84f,0.92f,1},w,h);
+        renderer.text(36,float(h)-56,1.1f,"T assignment 1/2   P lunar plane   R reset   F12 screenshot   ESC quit",{0.45f,0.6f,0.72f,1},w,h);
+        renderer.text(36,float(h)-35,1.1f, a.textured
+            ? "SUN point light + emissive surface | Maps: Solar System Scope / INOVE - CC BY 4.0"
+            : "Unlit vertex colors | OpenGL 3.3 Core | Same orbits, time and camera in both modes",
+            {0.45f,0.6f,0.72f,1},w,h);
         ++frames;
         if (a.capture || (!o.screenshot.empty() && frames == o.frames)) {
             renderer.screenshot(a.capture ? "screenshot.png" : o.screenshot,fw,fh); a.capture=false;
@@ -163,7 +172,7 @@ int main(int argc,char** argv) {
         glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT,GLFW_TRUE);
         glfwWindowHint(GLFW_SAMPLES,4);
-        window = glfwCreateWindow(1280,800,"Sun / Earth / Moon - Assignment 01",nullptr,nullptr);
+        window = glfwCreateWindow(1280,800,"Sun / Earth / Moon - Assignments 01 + 02",nullptr,nullptr);
         if (!window) throw std::runtime_error("Cannot create an OpenGL 3.3 Core window");
         glfwSetWindowSizeLimits(window,900,560,GLFW_DONT_CARE,GLFW_DONT_CARE);
         glfwMakeContextCurrent(window); glfwSwapInterval(1);
