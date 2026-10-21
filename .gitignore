@@ -1,0 +1,16 @@
+# Local build and release output
+/build/
+/build-*/
+/cmake-build-*/
+/dist/
+
+# macOS and editor-local state
+.DS_Store
+.idea/
+.vscode/
+*.user
+
+# Local secrets
+.env
+.env.*
+!.env.example
